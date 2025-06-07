@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Network Traffic Analyzer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            background: linear-gradient(135deg, #0f0f0f 0%, #1a1a1a 100%);
+            color: #00ff00;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #00ff00;
+            padding-bottom: 20px;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            text-shadow: 0 0 20px #00ff00;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #888;
+            font-size: 1.1em;
+        }
+
+        .control-panel {
+            background: rgba(0, 255, 0, 0.1);
+            border: 1px solid #00ff00;
+            border-radius: 10px;
+            padding: 25px;
+            margin-bottom: 30px;
+            backdrop-filter: blur(10px);
+        }
+
+        .input-group {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .input-field {
+            flex: 1;
+            min-width: 300px;
+        }
+
+        .input-field label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #00ff00;
+        }
+
+        .input-field input {
+            width: 100%;
+            padding: 12px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 1px solid #00ff00;
+            border-radius: 5px;
+            color: #00ff00;
+            font-family: inherit;
+            font-size: 14px;
+        }
+
+        .input-field input:focus {
+            outline: none;
+            border-color: #00ff88;
+            box-shadow: 0 0 10px rgba(0, 255, 0, 0.3);
+        }
+
+        .button-group {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 12px 25px;
+            background: linear-gradient(45deg, #00ff00, #00cc00);
+            color: #000;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            font-family: inherit;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+        }
+
+        .btn:hover {
+            background: linear-gradient(45deg, #00cc00, #009900);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 255, 0, 0.3);
+        }
+
+        .btn:disabled {
+            background: #333;
+            color: #666;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .btn.stop {
+            background: linear-gradient(45deg, #ff0000, #cc0000);
+            color: #fff;
+        }
+
+        .btn.stop:hover {
+            background: linear-gradient(45deg, #cc0000, #990000);
+        }
+
+        .status {
+            text-align: center;
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+
+        .status.analyzing {
+            background: rgba(0, 255, 0, 0.2);
+            border: 1px solid #00ff00;
+            color: #00ff00;
+        }
+
+        .status.stopped {
+            background: rgba(255, 0, 0, 0.2);
+            border: 1px solid #ff0000;
+            color: #ff0000;
+        }
+
+        .results-section {
+            background: rgba(0, 0, 0, 0.8);
+            border: 1px solid #00ff00;
+            border-radius: 10px;
+            margin-top: 30px;
+        }
+
+        .results-header {
+            background: rgba(0, 255, 0, 0.1);
+            padding: 20px;
+            border-bottom: 1px solid #00ff00;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .results-header h2 {
+            color: #00ff00;
+            font-size: 1.5em;
+        }
+
+        .request-count {
+            background: #00ff00;
+            color: #000;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-weight: bold;
+        }
+
+        .results-container {
+            max-height: 600px;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        .request-item {
+            background: rgba(0, 255, 0, 0.05);
+            border: 1px solid rgba(0, 255, 0, 0.3);
+            border-radius: 8px;
+            margin-bottom: 15px;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .request-item:hover {
+            border-color: #00ff00;
+            background: rgba(0, 255, 0, 0.1);
+        }
+
+        .request-header {
+            padding: 15px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(0, 255, 0, 0.2);
+        }
+
+        .request-header:hover {
+            background: rgba(0, 255, 0, 0.1);
+        }
+
+        .request-method {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 0.8em;
+            text-transform: uppercase;
+        }
+
+        .method-get { background: #0088ff; color: white; }
+        .method-post { background: #ff8800; color: white; }
+        .method-put { background: #8800ff; color: white; }
+        .method-delete { background: #ff0000; color: white; }
+        .method-patch { background: #00ff88; color: black; }
+
+        .request-url {
+            flex: 1;
+            margin: 0 15px;
+            font-family: inherit;
+            word-break: break-all;
+        }
+
+        .request-time {
+            color: #888;
+            font-size: 0.9em;
+        }
+
+        .request-details {
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+        }
+
+        .request-details.expanded {
+            display: block;
+        }
+
+        .detail-section {
+            margin-bottom: 20px;
+        }
+
+        .detail-section h4 {
+            color: #00ff00;
+            margin-bottom: 10px;
+            border-bottom: 1px solid #00ff00;
+            padding-bottom: 5px;
+        }
+
+        .detail-content {
+            background: rgba(0, 0, 0, 0.8);
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #333;
+            font-family: inherit;
+            font-size: 0.9em;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .iframe-container {
+            margin-top: 30px;
+            border: 1px solid #00ff00;
+            border-radius: 10px;
+            overflow: hidden;
+            height: 600px;
+            background: rgba(0, 0, 0, 0.8);
+        }
+
+        .iframe-header {
+            background: rgba(0, 255, 0, 0.1);
+            padding: 15px;
+            border-bottom: 1px solid #00ff00;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .iframe-header span {
+            color: #00ff00;
+            font-weight: bold;
+        }
+
+        .iframe-url {
+            flex: 1;
+            color: #888;
+            font-family: inherit;
+            word-break: break-all;
+        }
+
+        #websiteFrame {
+            width: 100%;
+            height: calc(100% - 60px);
+            border: none;
+            background: white;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #888;
+        }
+
+        .loading::after {
+            content: '';
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            margin-left: 10px;
+            border: 2px solid #00ff00;
+            border-radius: 50%;
+            border-top-color: transparent;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .error {
+            background: rgba(255, 0, 0, 0.2);
+            border: 1px solid #ff0000;
+            color: #ff0000;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+
+        .filters {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .filter-btn {
+            padding: 8px 15px;
+            background: rgba(0, 255, 0, 0.1);
+            border: 1px solid #00ff00;
+            border-radius: 20px;
+            color: #00ff00;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 0.9em;
+            transition: all 0.3s ease;
+        }
+
+        .filter-btn:hover, .filter-btn.active {
+            background: #00ff00;
+            color: #000;
+        }
+
+        @media (max-width: 768px) {
+            .input-group {
+                flex-direction: column;
+            }
+            
+            .input-field {
+                min-width: unset;
+            }
+            
+            .button-group {
+                justify-content: center;
+            }
+            
+            .request-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🕵️ Network Traffic Analyzer</h1>
+            <p>Monitor and analyze all backend requests from any website in real-time</p>
+        </div>
+
+        <div class="control-panel">
+            <div class="input-group">
+                <div class="input-field">
+                    <label for="websiteUrl">Website URL to Analyze:</label>
+                    <input type="url" id="websiteUrl" placeholder="https://example.com" value="">
+                </div>
+                <div class="input-field">
+                    <label for="proxyUrl">Proxy/CORS Bypass URL (optional):</label>
+                    <input type="url" id="proxyUrl" placeholder="https://cors-anywhere.herokuapp.com/" value="">
+                </div>
+            </div>
+            
+            <div class="button-group">
+                <button class="btn" id="startAnalysis">🚀 Start Analysis</button>
+                <button class="btn stop" id="stopAnalysis" disabled>🛑 Stop Analysis</button>
+                <button class="btn" id="clearResults">🗑️ Clear Results</button>
+                <button class="btn" id="exportResults">📥 Export Results</button>
+            </div>
+        </div>
+
+        <div id="statusMessage" class="status" style="display: none;"></div>
+
+        <div class="iframe-container" id="iframeContainer" style="display: none;">
+            <div class="iframe-header">
+                <span>📱 Loaded Website:</span>
+                <div class="iframe-url" id="iframeUrl"></div>
+            </div>
+            <iframe id="websiteFrame" sandbox="allow-scripts allow-same-origin allow-forms allow-popups"></iframe>
+        </div>
+
+        <div class="results-section" id="resultsSection" style="display: none;">
+            <div class="results-header">
+                <h2>🔍 Intercepted Network Requests</h2>
+                <div class="request-count" id="requestCount">0 requests</div>
+            </div>
+            
+            <div class="filters">
+                <button class="filter-btn active" data-filter="all">All</button>
+                <button class="filter-btn" data-filter="GET">GET</button>
+                <button class="filter-btn" data-filter="POST">POST</button>
+                <button class="filter-btn" data-filter="PUT">PUT</button>
+                <button class="filter-btn" data-filter="DELETE">DELETE</button>
+                <button class="filter-btn" data-filter="xhr">XHR/AJAX</button>
+                <button class="filter-btn" data-filter="fetch">Fetch API</button>
+            </div>
+            
+            <div class="results-container" id="resultsContainer">
+                <div class="loading">Starting network analysis...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class NetworkAnalyzer {
+            constructor() {
+                this.requests = [];
+                this.isAnalyzing = false;
+                this.requestCount = 0;
+                this.filters = { active: 'all' };
+                this.originalFetch = null;
+                this.originalXHR = null;
+                
+                this.initializeElements();
+                this.bindEvents();
+            }
+
+            initializeElements() {
+                this.elements = {
+                    websiteUrl: document.getElementById('websiteUrl'),
+                    proxyUrl: document.getElementById('proxyUrl'),
+                    startBtn: document.getElementById('startAnalysis'),
+                    stopBtn: document.getElementById('stopAnalysis'),
+                    clearBtn: document.getElementById('clearResults'),
+                    exportBtn: document.getElementById('exportResults'),
+                    statusMessage: document.getElementById('statusMessage'),
+                    iframeContainer: document.getElementById('iframeContainer'),
+                    iframe: document.getElementById('websiteFrame'),
+                    iframeUrl: document.getElementById('iframeUrl'),
+                    resultsSection: document.getElementById('resultsSection'),
+                    resultsContainer: document.getElementById('resultsContainer'),
+                    requestCount: document.getElementById('requestCount')
+                };
+            }
+
+            bindEvents() {
+                this.elements.startBtn.addEventListener('click', () => this.startAnalysis());
+                this.elements.stopBtn.addEventListener('click', () => this.stopAnalysis());
+                this.elements.clearBtn.addEventListener('click', () => this.clearResults());
+                this.elements.exportBtn.addEventListener('click', () => this.exportResults());
+                
+                // Filter buttons
+                document.querySelectorAll('.filter-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => this.setFilter(e.target.dataset.filter));
+                });
+            }
+
+            async startAnalysis() {
+                const url = this.elements.websiteUrl.value.trim();
+                if (!url) {
+                    this.showError('Please enter a website URL');
+                    return;
+                }
+
+                if (!url.startsWith('http://') && !url.startsWith('https://')) {
+                    this.elements.websiteUrl.value = 'https://' + url;
+                }
+
+                this.isAnalyzing = true;
+                this.requests = [];
+                this.requestCount = 0;
+                
+                this.updateUI();
+                this.showStatus('🔄 Initializing network analysis...', 'analyzing');
+                
+                try {
+                    this.setupNetworkInterception();
+                    await this.loadWebsite();
+                    this.startMonitoring();
+                    this.showStatus('✅ Analysis active - Monitoring network traffic', 'analyzing');
+                } catch (error) {
+                    this.showError(`Failed to start analysis: ${error.message}`);
+                    this.stopAnalysis();
+                }
+            }
+
+            async loadWebsite() {
+                const url = this.elements.websiteUrl.value;
+                const proxyUrl = this.elements.proxyUrl.value.trim();
+                
+                const finalUrl = proxyUrl ? proxyUrl + url : url;
+                
+                this.elements.iframe.src = finalUrl;
+                this.elements.iframeUrl.textContent = url;
+                this.elements.iframeContainer.style.display = 'block';
+                
+                return new Promise((resolve, reject) => {
+                    const timeout = setTimeout(() => {
+                        reject(new Error('Website loading timeout'));
+                    }, 15000);
+                    
+                    this.elements.iframe.onload = () => {
+                        clearTimeout(timeout);
+                        resolve();
+                    };
+                    
+                    this.elements.iframe.onerror = () => {
+                        clearTimeout(timeout);
+                        reject(new Error('Failed to load website'));
+                    };
+                });
+            }
+
+            setupNetworkInterception() {
+                // Store original methods
+                this.originalFetch = window.fetch;
+                this.originalXHR = window.XMLHttpRequest;
+                
+                // Intercept fetch API
+                window.fetch = async (...args) => {
+                    const [resource, config] = args;
+                    const request = {
+                        id: ++this.requestCount,
+                        timestamp: new Date().toISOString(),
+                        method: config?.method || 'GET',
+                        url: typeof resource === 'string' ? resource : resource.url,
+                        type: 'fetch',
+                        headers: config?.headers || {},
+                        body: config?.body ? this.tryParseJSON(config.body) : undefined
+                    };
+                    
+                    try {
+                        // Call original fetch
+                        const response = await this.originalFetch.apply(window, args);
+                        
+                        // Clone the response to avoid consuming it
+                        const clonedResponse = response.clone();
+                        
+                        // Try to parse the response body
+                        const contentType = clonedResponse.headers.get('content-type');
+                        
+                        if (contentType && contentType.includes('application/json')) {
+                            clonedResponse.json().then(data => {
+                                request.response = {
+                                    status: response.status,
+                                    data: data
+                                };
+                                this.requests.unshift(request);
+                                this.updateRequestsDisplay();
+                                this.updateRequestCount();
+                            }).catch(err => {
+                                request.response = {
+                                    status: response.status,
+                                    data: `[Failed to parse JSON: ${err.message}]`
+                                };
+                                this.requests.unshift(request);
+                                this.updateRequestsDisplay();
+                                this.updateRequestCount();
+                            });
+                        } else {
+                            request.response = {
+                                status: response.status,
+                                data: `[${contentType || 'unknown content type'}]`
+                            };
+                            this.requests.unshift(request);
+                            this.updateRequestsDisplay();
+                            this.updateRequestCount();
+                        }
+                        
+                        return response;
+                    } catch (error) {
+                        request.response = {
+                            status: 0,
+                            data: `[Error: ${error.message}]`
+                        };
+                        this.requests.unshift(request);
+                        this.updateRequestsDisplay();
+                        this.updateRequestCount();
+                        throw error; // Re-throw the error
+                    }
+                };
+                
+                // Intercept XMLHttpRequest
+                window.XMLHttpRequest = function() {
+                    const xhr = new this.originalXHR();
+                    const self = this;
+                    
+                    // Create request object
+                    const request = {
+                        id: ++this.requestCount,
+                        timestamp: new Date().toISOString(),
+                        method: '',
+                        url: '',
+                        type: 'xhr',
+                        headers: {}
+                    };
+                    
+                    // Override open method
+                    xhr.open = (...args) => {
+                        const [method, url] = args;
+                        request.method = method;
+                        request.url = url;
+                        this.originalXHR.prototype.open.apply(xhr, args);
+                    };
+                    
+                    // Override setRequestHeader
+                    xhr.setRequestHeader = (name, value) => {
+                        request.headers[name] = value;
+                        this.originalXHR.prototype.setRequestHeader.call(xhr, name, value);
+                    };
+                    
+                    // Override send method
+                    xhr.send = (body) => {
+                        if (body) {
+                            request.body = this.tryParseJSON(body);
+                        }
+                        
+                        xhr.addEventListener('load', () => {
+                            request.response = {
+                                status: xhr.status,
+                                data: this.tryParseJSON(xhr.responseText)
+                            };
+                            this.requests.unshift(request);
+                            this.updateRequestsDisplay();
+                            this.updateRequestCount();
+                        });
+                        
+                        xhr.addEventListener('error', () => {
+                            request.response = {
+                                status: xhr.status,
+                                data: '[Network error]'
+                            };
+                            this.requests.unshift(request);
+                            this.updateRequestsDisplay();
+                            this.updateRequestCount();
+                        });
+                        
+                        this.originalXHR.prototype.send.call(xhr, body);
+                    };
+                    
+                    return xhr;
+                }.bind(this);
+                
+                // Fix the prototype chain
+                window.XMLHttpRequest.prototype = this.originalXHR.prototype;
+            }
+
+            tryParseJSON(text) {
+                if (!text) return undefined;
+                if (typeof text !== 'string') {
+                    try {
+                        return JSON.parse(JSON.stringify(text));
+                    } catch (e) {
+                        return text.toString();
+                    }
+                }
+                
+                try {
+                    return JSON.parse(text);
+                } catch (e) {
+                    return text;
+                }
+            }
+            
+            // Remove the simulateNetworkRequests method and replace with a cleaner UI update
+            startMonitoring() {
+                this.elements.resultsContainer.innerHTML = '<div class="loading">Waiting for network requests...</div>';
+            }
+
+            addRequest(requestData) {
+                if (!this.isAnalyzing) return;
+                
+                const request = {
+                    id: this.requestCount,
+                    ...requestData
+                };
+                
+                this.requests.unshift(request);
+                this.updateRequestsDisplay();
+                this.updateRequestCount();
+            }
+
+            updateRequestsDisplay() {
+                const container = this.elements.resultsContainer;
+                const activeFilter = this.filters.active;
+                
+                let filteredRequests = this.requests;
+                if (activeFilter !== 'all') {
+                    filteredRequests = this.requests.filter(req => 
+                        req.method === activeFilter || req.type === activeFilter.toLowerCase()
+                    );
+                }
+                
+                container.innerHTML = '';
+                
+                if (filteredRequests.length === 0) {
+                    container.innerHTML = '<div class="loading">No requests match the current filter...</div>';
+                    return;
+                }
+                
+                filteredRequests.forEach(request => {
+                    const requestElement = this.createRequestElement(request);
+                    container.appendChild(requestElement);
+                });
+            }
+
+            createRequestElement(request) {
+                const div = document.createElement('div');
+                div.className = 'request-item';
+                div.innerHTML = `
+                    <div class="request-header" onclick="this.parentElement.querySelector('.request-details').classList.toggle('expanded')">
+                        <span class="request-method method-${request.method.toLowerCase()}">${request.method}</span>
+                        <div class="request-url">${request.url}</div>
+                        <div class="request-time">${new Date(request.timestamp).toLocaleTimeString()}</div>
+                    </div>
+                    <div class="request-details">
+                        ${request.headers ? `
+                            <div class="detail-section">
+                                <h4>Headers</h4>
+                                <div class="detail-content">${JSON.stringify(request.headers, null, 2)}</div>
+                            </div>
+                        ` : ''}
+                        ${request.body ? `
+                            <div class="detail-section">
+                                <h4>Request Body</h4>
+                                <div class="detail-content">${JSON.stringify(request.body, null, 2)}</div>
+                            </div>
+                        ` : ''}
+                        ${request.response ? `
+                            <div class="detail-section">
+                                <h4>Response</h4>
+                                <div class="detail-content">Status: ${request.response.status}
+${JSON.stringify(request.response.data, null, 2)}</div>
+                            </div>
+                        ` : ''}
+                        <div class="detail-section">
+                            <h4>Request Info</h4>
+                            <div class="detail-content">Type: ${request.type?.toUpperCase() || 'Unknown'}
+Timestamp: ${request.timestamp}
+ID: ${request.id}</div>
+                        </div>
+                    </div>
+                `;
+                return div;
+            }
+
+            stopAnalysis() {
+                this.isAnalyzing = false;
+                
+                // Restore original methods
+                if (this.originalFetch) {
+                    window.fetch = this.originalFetch;
+                    this.originalFetch = null;
+                }
+                
+                if (this.originalXHR) {
+                    window.XMLHttpRequest = this.originalXHR;
+                    this.originalXHR = null;
+                }
+                
+                this.updateUI();
+                this.showStatus('🛑 Analysis stopped', 'stopped');
+            }
+
+            clearResults() {
+                this.requests = [];
+                this.requestCount = 0;
+                this.updateRequestsDisplay();
+                this.updateRequestCount();
+                this.elements.resultsContainer.innerHTML = '<div class="loading">Ready to start analysis...</div>';
+            }
+
+            exportResults() {
+                if (this.requests.length === 0) {
+                    this.showError('No requests to export');
+                    return;
+                }
+                
+                const data = {
+                    website: this.elements.websiteUrl.value,
+                    timestamp: new Date().toISOString(),
+                    totalRequests: this.requests.length,
+                    requests: this.requests
+                };
+                
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `network-analysis-${Date.now()}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }
+
+            setFilter(filter) {
+                this.filters.active = filter;
+                document.querySelectorAll('.filter-btn').forEach(btn => {
+                    btn.classList.toggle('active', btn.dataset.filter === filter);
+                });
+                this.updateRequestsDisplay();
+            }
+
+            updateUI() {
+                this.elements.startBtn.disabled = this.isAnalyzing;
+                this.elements.stopBtn.disabled = !this.isAnalyzing;
+                this.elements.resultsSection.style.display = 'block';
+            }
+
+            updateRequestCount() {
+                this.elements.requestCount.textContent = `${this.requests.length} requests`;
+            }
+
+            showStatus(message, type) {
+                this.elements.statusMessage.textContent = message;
+                this.elements.statusMessage.className = `status ${type}`;
+                this.elements.statusMessage.style.display = 'block';
+            }
+
+            showError(message) {
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'error';
+                errorDiv.textContent = message;
+                this.elements.statusMessage.parentNode.insertBefore(errorDiv, this.elements.statusMessage.nextSibling);
+                setTimeout(() => errorDiv.remove(), 5000);
+            }
+        }
+
+        // Initialize the application
+        const analyzer = new NetworkAnalyzer();
+    </script>
+</body>
+</html>
